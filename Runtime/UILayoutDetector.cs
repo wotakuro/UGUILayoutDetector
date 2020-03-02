@@ -34,6 +34,11 @@ namespace UTJ
 
         private StringBuilder stringBuilder = new StringBuilder(256);
 
+        private FieldInfo materialDirtyField;
+        private FieldInfo vertexDirtyField;
+        public bool MarkProfilerWithName { get; set; }
+        public bool DirtyInfoFlag { get; set; }
+
         public List<ICanvasElement> LayoutRebuildList
         {
             get
@@ -61,7 +66,6 @@ namespace UTJ
             }
         }
 
-        public bool MarkProfilerWithName { get; set; }
 
 
         [RuntimeInitializeOnLoadMethod]
@@ -88,6 +92,7 @@ namespace UTJ
             GraphicRebuildSampler = CustomSampler.Create("GraphicRebuild");
 
             MarkProfilerWithName = false;
+            DirtyInfoFlag = true;
             //
             InsertToPlayerLoop();
 
@@ -183,7 +188,6 @@ namespace UTJ
                     LayoutRebuildSampler.Begin(obj);
                     LayoutRebuildSampler.End();
                 }
-
             }
             for (int i = 0; i < m_GraphicRebuildQueue.Count; ++i)
             {
@@ -208,7 +212,9 @@ namespace UTJ
                 var obj = m_LayoutRebuildQueue[i].transform;
                 this.stringBuilder.Length = 0;
                 GetObjectFullName(obj, this.stringBuilder);
-                Profiler.BeginSample(stringBuilder.ToString());
+                AppendGraphicDirtyInfo(m_GraphicRebuildQueue[i], this.stringBuilder);
+
+                Profiler.BeginSample(stringBuilder.ToString(),obj);
                 Profiler.EndSample();
             }
             LayoutRebuildSampler.End();
@@ -221,7 +227,8 @@ namespace UTJ
                 var obj = m_GraphicRebuildQueue[i].transform;
                 this.stringBuilder.Length = 0;
                 GetObjectFullName(obj, this.stringBuilder);
-                Profiler.BeginSample(stringBuilder.ToString());
+                AppendGraphicDirtyInfo(m_GraphicRebuildQueue[i],this.stringBuilder);
+                Profiler.BeginSample(stringBuilder.ToString(),obj);
                 Profiler.EndSample();
             }
             GraphicRebuildSampler.End();
@@ -229,6 +236,32 @@ namespace UTJ
             this.UIDetectSampler.End();
         }
 
+        private void AppendGraphicDirtyInfo(ICanvasElement element,StringBuilder sb)
+        {
+            if(!DirtyInfoFlag)
+            {
+                return;
+            }
+            var graphic = element as Graphic;
+            if(graphic == null) { return; }
 
+            if (materialDirtyField == null || vertexDirtyField == null)
+            {
+                var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
+                materialDirtyField = typeof(Graphic).GetField("m_MaterialDirty", bindingFlags);
+                vertexDirtyField = typeof(Graphic).GetField("m_VertsDirty", bindingFlags);
+            }
+            var isMaterialDirty = (bool)materialDirtyField.GetValue(graphic);
+            var isVertDirty = (bool)vertexDirtyField.GetValue(graphic);
+
+            if (isMaterialDirty)
+            {
+                sb.Append(" MaterialDirty");
+            }
+            if (isVertDirty)
+            {
+                sb.Append(" VertDirty");
+            }
+        }
     }
 }

@@ -1,0 +1,13 @@
+{
+    "name": "com.utj.uguilayoutdetector",
+    "displayName": "UGUILayoutDetector",
+    "version": "0.1.0",
+    "unity": "2018.4",
+    "description": "Detect UILayout bottle neck ",
+    "keywords": [
+        "Profiler",
+        "UGUI"
+    ],
+    "category": "profiler",
+    "dependencies": {}
+}

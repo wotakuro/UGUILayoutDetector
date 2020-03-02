@@ -8,12 +8,16 @@ using UnityEngine.Profiling;
 
 using UnityEngine.Experimental.PlayerLoop;
 using UnityEngine.Experimental.LowLevel;
+using System.Text;
 
 
 namespace UTJ
 {
     public class UILayoutDetector
     {
+
+        private static UILayoutDetector instance;
+
         // RebuildList at preview frame 
         private List<ICanvasElement> layoutRebuildBuffer;
         private List<ICanvasElement> graphicRebuildBuffer;
@@ -28,11 +32,42 @@ namespace UTJ
         private CustomSampler LayoutRebuildSampler;
         private CustomSampler GraphicRebuildSampler;
 
+        private StringBuilder stringBuilder = new StringBuilder(256);
+
+        public List<ICanvasElement> LayoutRebuildList
+        {
+            get
+            {
+                return layoutRebuildBuffer;
+            }
+        }
+        public List<ICanvasElement> GraphicRebuildList
+        {
+            get
+            {
+                return graphicRebuildBuffer;
+            }
+        }
+
+        public static UILayoutDetector Instance
+        {
+            get
+            {
+                if(instance == null)
+                {
+                    instance = new UILayoutDetector();
+                }
+                return instance;
+            }
+        }
+
+        public bool MarkProfilerWithName { get; set; }
+
 
         [RuntimeInitializeOnLoadMethod]
         public static void Initialize()
         {
-            var instance = new UILayoutDetector();
+            var instance = UILayoutDetector.Instance;
         }
 
         private UILayoutDetector()
@@ -51,9 +86,21 @@ namespace UTJ
             UIDetectSampler = CustomSampler.Create("UILayoutDetect");
             LayoutRebuildSampler = CustomSampler.Create("LayoutRebuild");
             GraphicRebuildSampler = CustomSampler.Create("GraphicRebuild");
+
+            MarkProfilerWithName = false;
             //
             InsertToPlayerLoop();
-            
+
+        }
+
+        private void GetObjectFullName(Transform trans,StringBuilder sb)
+        {
+            if (trans.parent != null)
+            {
+                GetObjectFullName(trans.parent,sb);
+            }
+            sb.Append("/");
+            sb.Append(trans.name);
         }
 
         private void InsertToPlayerLoop()
@@ -103,7 +150,14 @@ namespace UTJ
             layoutRebuildBuffer.Clear();
             graphicRebuildBuffer.Clear();
             
-            MarkProfiler();
+            if(MarkProfilerWithName)
+            {
+                MarkProfilerWithObjectName();
+            }
+            else
+            {
+                MarkProfiler();
+            }
 
             for ( int i = 0;i< m_LayoutRebuildQueue.Count;++i)
             {
@@ -141,8 +195,40 @@ namespace UTJ
                 }
 
             }
+            this.UIDetectSampler.End();
+        }
+
+        private void MarkProfilerWithObjectName()
+        {
+            this.UIDetectSampler.Begin();
+
+            LayoutRebuildSampler.Begin();
+            for (int i = 0; i < m_LayoutRebuildQueue.Count; ++i)
+            {
+                var obj = m_LayoutRebuildQueue[i].transform;
+                this.stringBuilder.Length = 0;
+                GetObjectFullName(obj, this.stringBuilder);
+                Profiler.BeginSample(stringBuilder.ToString());
+                Profiler.EndSample();
+            }
+            LayoutRebuildSampler.End();
+
+
+
+            GraphicRebuildSampler.Begin();
+            for (int i = 0; i < m_GraphicRebuildQueue.Count; ++i)
+            {
+                var obj = m_GraphicRebuildQueue[i].transform;
+                this.stringBuilder.Length = 0;
+                GetObjectFullName(obj, this.stringBuilder);
+                Profiler.BeginSample(stringBuilder.ToString());
+                Profiler.EndSample();
+            }
+            GraphicRebuildSampler.End();
 
             this.UIDetectSampler.End();
         }
+
+
     }
 }
